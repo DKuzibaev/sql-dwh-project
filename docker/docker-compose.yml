@@ -1,0 +1,38 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2019-CU28-ubuntu-20.04
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong@Passw0rd
+      - MSSQL_PID=Express
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - dwh-network
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "pidof sqlservr"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  init-db:
+    image: mcr.microsoft.com/mssql-tools
+    volumes:
+      - ./scripts/init.sql:/init.sql
+    command: >
+      bash -c "sleep 90 && /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P YourStrong@Passw0rd -d master -i /init.sql"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - dwh-network
+
+volumes:
+  sqlserver-data:
+
+networks:
+  dwh-network:
+    driver: bridge
